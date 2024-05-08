@@ -54,6 +54,6 @@ async def save_workflow(request):
         os.makedirs(sub_path)
 
     with open(file, "w") as f:
-        f.write(json.dumps(json_data["workflow"]))
+        f.write(json.dumps(json_data["workflow"], indent=4))
 
     return web.Response(status=201)
