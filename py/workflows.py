@@ -1,9 +1,9 @@
+import logging
 from server import PromptServer
 from aiohttp import web
 import os
 import inspect
 import json
-import importlib
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pysssss
@@ -38,6 +38,34 @@ async def get_workflow(request):
     return web.FileResponse(file)
 
 
+def get_node_position(node):
+    potential_pos = node.get('pos', [float('inf'), float('inf')])
+    # rgthree's ImageComparer node stores its position as a dict
+    if isinstance(potential_pos, dict):
+        potential_pos = [potential_pos["0"], potential_pos["1"]]
+    return potential_pos
+
+
+def get_group_for_node(node, groups):
+    node_pos = get_node_position(node)
+    
+    for idx, group in enumerate(groups):
+        bounding = group['bounding']
+        if (bounding[0] <= node_pos[0] <= bounding[0] + bounding[2] and
+            bounding[1] <= node_pos[1] <= bounding[1] + bounding[3]):
+            return idx, group['bounding'][:2], group.get('title', f"Group {idx}")
+    
+    return None, node_pos, "Ungrouped"
+
+
+def sort_nodes(nodes, groups):
+    return sorted(nodes, key=lambda node: (
+        get_group_for_node(node, groups)[1],
+        get_group_for_node(node, groups)[0] if get_group_for_node(node, groups)[0] is not None else float('inf'),
+        get_node_position(node)
+    ))
+
+
 @PromptServer.instance.routes.post("/pysssss/workflows")
 async def save_workflow(request):
     json_data = await request.json()
@@ -46,14 +74,21 @@ async def save_workflow(request):
     if os.path.commonpath([file, workflows_directory]) != workflows_directory:
         return web.Response(status=403)
 
-    if os.path.exists(file) and ("overwrite" not in json_data or json_data["overwrite"] == False):
+    if os.path.exists(file) and ("overwrite" not in json_data or not json_data["overwrite"]):
         return web.Response(status=409)
 
     sub_path = os.path.dirname(file)
     if not os.path.exists(sub_path):
         os.makedirs(sub_path)
 
-    with open(file, "w") as f:
-        f.write(json.dumps(json_data["workflow"]))
+    # Sort the workflow data
+    workflow = json_data["workflow"]
+    
+    # Sort nodes based on their group and position
+    workflow["nodes"] = sort_nodes(workflow["nodes"], workflow.get("groups", []))
 
+    with open(file, "w") as f:
+        json.dump(workflow, f, indent=4)
+
+    logging.info(f"Saved workflow to {file}")
     return web.Response(status=201)
