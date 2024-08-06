@@ -144,6 +144,7 @@ class PysssssWorkflows {
 
 		this.loadMenu = addWorkflowMenu("load", () =>
 			this.getMenuOptions(async (workflow) => {
+				this.workflowName = workflow;
 				const json = await getWorkflow(workflow);
 				app.loadGraphData(json);
 			})
