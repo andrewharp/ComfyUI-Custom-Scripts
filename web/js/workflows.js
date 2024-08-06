@@ -153,7 +153,7 @@ class PysssssWorkflows {
 				{
 					title: "Save as",
 					callback: () => {
-						let filename = prompt("Enter filename", this.workflowName || "workflow");
+						let filename = prompt("Enter filename", app.graph.config?.name || this.workflowName || "workflow");
 						if (filename) {
 							if (!filename.toLowerCase().endsWith(".json")) {
 								filename += ".json";
@@ -181,9 +181,10 @@ class PysssssWorkflows {
 				{
 					title: "Save to workflows",
 					callback: async () => {
-						const name = prompt("Enter filename", this.workflowName || "workflow");
+						const name = prompt("Enter filename", app.graph.config?.name || this.workflowName || "workflow");
 						if (name) {
 							this.workflowName = name;
+							app.graph.config.name = name;
 
 							const data = app.graph.serialize();
 							if (!(await saveWorkflow(name, data))) {
