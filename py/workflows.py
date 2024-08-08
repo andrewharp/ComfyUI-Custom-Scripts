@@ -1,12 +1,17 @@
-import logging
-from server import PromptServer
-from aiohttp import web
-import os
+import glob
 import inspect
 import json
+import logging
+import os
+import re
+import shutil
 import sys
+from datetime import datetime
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pysssss
+from aiohttp import web
+from server import PromptServer
 
 root_directory = os.path.dirname(inspect.getfile(PromptServer))
 workflows_directory = os.path.join(root_directory, "pysssss-workflows")
@@ -87,8 +92,63 @@ async def save_workflow(request):
     # Sort nodes based on their group and position
     workflow["nodes"] = sort_nodes(workflow["nodes"], workflow.get("groups", []))
 
+    # Save the main workflow file
     with open(file, "w") as f:
         json.dump(workflow, f, indent=4)
 
     logging.info(f"Saved workflow to {file}")
+
+    # Create backups
+    backup_dir = os.path.join(workflows_directory, "bak")
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+
+    basename = os.path.splitext(os.path.basename(file))[0]
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    
+    # Backup the workflow file
+    workflow_backup_file = os.path.join(backup_dir, f"{basename}.{timestamp}.json")
+    with open(workflow_backup_file, "w") as f:
+        json.dump(workflow, f, indent=4)
+
+    # Backup the object_info.json file
+    object_info_file = os.path.join("object_info.json")
+    if os.path.exists(object_info_file):
+        object_info_backup_file = os.path.join(backup_dir, f"{basename}.{timestamp}.object_info.json")
+        shutil.copy2(object_info_file, object_info_backup_file)
+
+    # Clean up old backups
+    clean_up_backups(backup_dir)
+
     return web.Response(status=201)
+
+
+def clean_up_backups(backup_dir):
+    # Get all .json files in the backup directory
+    all_files = glob.glob(os.path.join(backup_dir, "*.json"))
+    
+    # Extract unique basenames using a set
+    basenames = set()
+    for file in all_files:
+        parts = os.path.basename(file).split('.')
+        if len(parts) >= 3:
+            basenames.add(parts[0])
+    
+    for basename in basenames:
+        # Get all files for this basename
+        basename_files = [f for f in all_files if os.path.basename(f).startswith(f"{basename}.")]
+        
+        # Extract unique basename.date combinations
+        unique_dates = set()
+        for file in basename_files:
+            parts = os.path.basename(file).split('.')
+            if len(parts) >= 3:
+                unique_dates.add(f"{parts[0]}.{parts[1]}")
+        
+        # Sort unique basename.date combinations (newest first)
+        sorted_dates = sorted(list(unique_dates), key=lambda x: x.split('.')[-1], reverse=True)
+        
+        # Keep only the 10 most recent backup sets
+        for old_date in sorted_dates[10:]:
+            for old_backup in [f for f in basename_files if f.startswith(os.path.join(backup_dir, old_date))]:
+                os.remove(old_backup)

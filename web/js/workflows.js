@@ -152,7 +152,7 @@ class PysssssWorkflows {
 		addWorkflowMenu("save", () => {
 			return [
 				{
-					title: "Save as",
+					title: "Download",
 					callback: () => {
 						let filename = prompt("Enter filename", app.graph.config?.name || this.workflowName || "workflow");
 						if (filename) {
