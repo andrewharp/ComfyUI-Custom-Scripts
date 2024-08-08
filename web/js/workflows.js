@@ -180,7 +180,7 @@ class PysssssWorkflows {
 					},
 				},
 				{
-					title: "Save to workflows",
+					title: "Save as",
 					callback: async () => {
 						const name = prompt("Enter filename", app.graph.config?.name || this.workflowName || "workflow");
 						if (name) {
