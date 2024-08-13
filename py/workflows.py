@@ -71,6 +71,18 @@ def sort_nodes(nodes, groups):
     ))
 
 
+def prune_object_info(workflow, object_info):
+    nodes_present = set([node["type"] for node in workflow["nodes"]])
+    pruned_object_info = {}
+    sorted_node_types = sorted(list(nodes_present))
+    
+    for node_type in sorted_node_types:
+        assert node_type in object_info, f"Node type {node_type} not found in object_info"
+        pruned_object_info[node_type] = object_info[node_type]
+
+    return pruned_object_info
+
+
 @PromptServer.instance.routes.post("/pysssss/workflows")
 async def save_workflow(request):
     json_data = await request.json()
@@ -88,6 +100,13 @@ async def save_workflow(request):
 
     # Sort the workflow data
     workflow = json_data["workflow"]
+
+    object_info_file = os.path.join("object_info.json")
+    with open(object_info_file, "r") as f:
+        object_info = json.load(f)
+
+    pruned_object_info = prune_object_info(workflow, object_info)
+    workflow["object_info"] = pruned_object_info
     
     # Sort nodes based on their group and position
     workflow["nodes"] = sort_nodes(workflow["nodes"], workflow.get("groups", []))
@@ -105,18 +124,11 @@ async def save_workflow(request):
 
     basename = os.path.splitext(os.path.basename(file))[0]
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    
-    # Backup the workflow file
+
     workflow_backup_file = os.path.join(backup_dir, f"{basename}.{timestamp}.json")
     with open(workflow_backup_file, "w") as f:
         json.dump(workflow, f, indent=4)
-
-    # Backup the object_info.json file
-    object_info_file = os.path.join("object_info.json")
-    if os.path.exists(object_info_file):
-        object_info_backup_file = os.path.join(backup_dir, f"{basename}.{timestamp}.object_info.json")
-        shutil.copy2(object_info_file, object_info_backup_file)
-
+        
     # Clean up old backups
     clean_up_backups(backup_dir)
 
