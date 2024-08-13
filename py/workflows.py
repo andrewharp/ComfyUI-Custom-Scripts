@@ -8,6 +8,8 @@ import shutil
 import sys
 from datetime import datetime
 
+import curie.tools.update_workflow
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pysssss
 from aiohttp import web
@@ -71,18 +73,6 @@ def sort_nodes(nodes, groups):
     ))
 
 
-def prune_object_info(workflow, object_info):
-    nodes_present = set([node["type"] for node in workflow["nodes"]])
-    pruned_object_info = {}
-    sorted_node_types = sorted(list(nodes_present))
-    
-    for node_type in sorted_node_types:
-        assert node_type in object_info, f"Node type {node_type} not found in object_info"
-        pruned_object_info[node_type] = object_info[node_type]
-
-    return pruned_object_info
-
-
 @PromptServer.instance.routes.post("/pysssss/workflows")
 async def save_workflow(request):
     json_data = await request.json()
@@ -105,7 +95,7 @@ async def save_workflow(request):
     with open(object_info_file, "r") as f:
         object_info = json.load(f)
 
-    pruned_object_info = prune_object_info(workflow, object_info)
+    pruned_object_info = curie.tools.update_workflow.prune_object_info(workflow, object_info)
     workflow["object_info"] = pruned_object_info
     
     # Sort nodes based on their group and position
