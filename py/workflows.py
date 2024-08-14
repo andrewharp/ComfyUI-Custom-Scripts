@@ -8,7 +8,10 @@ import shutil
 import sys
 from datetime import datetime
 
+import requests
+
 import curie.tools.update_workflow as update_workflow
+import server
 
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -64,9 +67,7 @@ async def save_workflow(request):
     # Sort the workflow data
     workflow = json_data["workflow"]
 
-    object_info_file = os.path.join("object_info.json")
-    with open(object_info_file, "r") as f:
-        object_info = json.load(f)
+    object_info = server.server_get_object_info()
 
     pruned_object_info = update_workflow.prune_object_info(workflow, object_info)
     workflow["object_info"] = pruned_object_info
